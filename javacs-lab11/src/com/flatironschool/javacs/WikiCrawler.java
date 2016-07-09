@@ -8,6 +8,7 @@ import java.util.Queue;
 
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.jsoup.nodes.Node;
 
 import redis.clients.jedis.Jedis;
 
@@ -55,7 +56,25 @@ public class WikiCrawler {
 	 */
 	public String crawl(boolean testing) throws IOException {
         // FILL THIS IN!
-		return null;
+        if(queue.isEmpty()){
+        	return null;
+        }
+        String url = queue.remove();
+        Elements paragraphs;
+        if(testing)
+        {
+        	paragraphs = wf.readWikipedia(url);
+        }
+        else{
+        	if(index.isIndexed(url))
+        	{
+        		return null;
+        	}
+        	paragraphs = wf.fetchWikipedia(url);
+        }
+        index.indexPage(url,paragraphs);
+        queueInternalLinks(paragraphs);
+		return url;
 	}
 	
 	/**
@@ -66,6 +85,21 @@ public class WikiCrawler {
 	// NOTE: absence of access level modifier means package-level
 	void queueInternalLinks(Elements paragraphs) {
         // FILL THIS IN!
+		for(Element paragraph: paragraphs)
+		{
+			Iterable<Node> iterator = new WikiNodeIterable(paragraph);
+			for(Node node: iterator)
+			{
+				if(node instanceof Element)
+				{
+					String link = node.attr("href");
+					if(link.startsWith("/wiki/"))
+					{
+						queue.add("https://en.wikipedia.org" + ((Element)node).attr("href"));	
+					}
+				}
+			}
+		}
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -86,7 +120,7 @@ public class WikiCrawler {
 			res = wc.crawl(false);
 
             // REMOVE THIS BREAK STATEMENT WHEN crawl() IS WORKING
-            break;
+            //break;
 		} while (res == null);
 		
 		Map<String, Integer> map = index.getCounts("the");
